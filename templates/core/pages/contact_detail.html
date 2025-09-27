@@ -12,7 +12,8 @@
       </tr>
       <tr>
         <th>Phone</th>
-        <td>{{ contact.phone_number|default:"—" }}</td>
+        <td>{{ contact.phone|default:"—" }}</td>
+
       </tr>
       <tr>
         <th>Company</th>
@@ -52,6 +53,9 @@
       </tr>
     </tbody>
   </table>
+<p>
+  <a href="{% url 'contact_edit' contact.pk %}" class="btn btn-warning">✏ Edit</a>
+</p>
 
   <p><a href="{% url 'contacts_list' %}">← Back to Contacts</a></p>
 {% endblock %}

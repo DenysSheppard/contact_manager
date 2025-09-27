@@ -20,12 +20,13 @@
             {% for contact in contacts %}
                 <tr>
                     <td>
-  <a href="{% url 'contact_detail' contact.pk %}">
-    {{ contact.full_name }}
-  </a>
+  <a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a>
+  · <a href="{% url 'contact_edit' contact.pk %}">edit</a>
 </td>
+
                     <td>{{ contact.email }}</td>
-                    <td>{{ contact.phone_number }}</td>
+                    <td>{{ contact.phone }}</td>
+
                     <td>
   {% if contact.company %}
     {{ contact.company.name }}

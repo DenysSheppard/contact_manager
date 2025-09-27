@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Companies{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-3">Companies</h2>
+
+  <form method="post" class="mb-3">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Add Company</button>
+  </form>
+
+  {% if objects %}
+    <table class="table table-striped table-bordered">
+      <thead class="table-dark">
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Website</th>
+          <th>Industry</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for company in objects %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ company.name }}</td>
+            <td>{{ company.website|default:"—" }}</td>
+            <td>{{ company.industry|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning">No companies yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
