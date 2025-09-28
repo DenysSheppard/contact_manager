@@ -1,15 +1,44 @@
-from django.views import View
 from django.shortcuts import render, get_object_or_404, redirect
-from apps.core.models.contact import Contact
-from apps.core.forms import ContactForm
-from django.urls import reverse_lazy
-from django.views.generic import DetailView, UpdateView
+from django.urls import reverse, reverse_lazy
 from django.contrib import messages
-from django.views.generic import UpdateView
-from django.urls import reverse
+from django.views import View
 from django.views.decorators.http import require_http_methods
-from apps.core.forms import CompanyForm, AddressForm, TagForm
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView, DetailView, UpdateView
 
+from apps.core.models.contact import Contact
+from apps.core.forms import ContactForm, CompanyForm, AddressForm, TagForm
+
+
+# -------- Публічні сторінки --------
+def welcome_view(request):
+    return render(request, "core/pages/welcome.html")
+
+def about_view(request):
+    return render(request, "about.html")
+
+
+# -------- Контакти (закриті) --------
+@login_required
+def contacts_list_view(request):
+    contacts = (
+        Contact.objects
+        .select_related('company')
+        .all()
+        .order_by('full_name')
+    )
+    return render(request, "core/pages/contacts_list.html", {"contacts": contacts})
+
+@login_required
+def contact_detail_view(request, pk: int):
+    contact = get_object_or_404(
+        Contact.objects.select_related("company").prefetch_related("tags"),
+        pk=pk,
+    )
+    return render(request, "core/pages/contact_detail.html", {"contact": contact})
+
+@login_required
 def contact_edit_view(request, pk):
     contact = get_object_or_404(Contact, pk=pk)
     if request.method == "POST":
@@ -21,35 +50,24 @@ def contact_edit_view(request, pk):
     else:
         form = ContactForm(instance=contact)
     return render(request, "core/pages/contact_edit.html", {"form": form, "contact": contact})
-def welcome_view(request):
-    return render(request, "core/pages/welcome.html")
-
-def about_view(request):
-    return render(request, "about.html")
 
 
-def contacts_list_view(request):
-    contacts = (
-        Contact.objects
-        .select_related('company')
-        .all()
-        .order_by('full_name')
-    )
-    return render(request, "core/pages/contacts_list.html", {"contacts": contacts})
+# Варіант редагування через класову в’юху (також закрито)
+class ContactEditView(LoginRequiredMixin, UpdateView):
+    model = Contact
+    form_class = ContactForm
+    template_name = "core/pages/contact_edit.html"
 
-def contact_detail_view(request, pk: int):
-    contact = get_object_or_404(
-        Contact.objects.select_related("company").prefetch_related("tags"),
-        pk=pk,
-    )
-    return render(request, "core/pages/contact_detail.html", {"contact": contact})
+    def get_success_url(self):
+        return reverse("contact_detail", kwargs={"pk": self.object.pk})
 
 
-class ContactDetailUpdateView(View):
+# Якщо хочеш оновлення через кастомний View — теж закриваємо:
+class ContactDetailUpdateView(LoginRequiredMixin, View):
     def get(self, request, pk):
         contact = get_object_or_404(Contact, pk=pk)
         form = ContactForm(instance=contact)
-        return render(request, "core/pages/contact_detail.html", {"contact_form": form})
+        return render(request, "core/pages/contact_detail.html", {"contact_form": form, "contact": contact})
 
     def post(self, request, pk):
         contact = get_object_or_404(Contact, pk=pk)
@@ -57,24 +75,23 @@ class ContactDetailUpdateView(View):
         if form.is_valid():
             form.save()
             return redirect("contact_detail", pk=pk)
-        return render(request, "core/pages/contact_detail.html", {"contact_form": form})
+        return render(request, "core/pages/contact_detail.html", {"contact_form": form, "contact": contact})
 
-    class ContactDetailUpdateView(UpdateView):
-        model = Contact
-        form_class = ContactForm
-        template_name = "core/pages/contact_detail.html"
-        success_url = reverse_lazy("contacts_list")
 
-        class ContactDetailView(DetailView):
-            model = Contact
-            template_name = "core/pages/contact_detail.html"  # твій read-only шаблон
-            context_object_name = "contact"
+# Класові “read-only” в’юхи теж закриті:
+class ContactListView(LoginRequiredMixin, ListView):
+    model = Contact
+    template_name = "core/pages/contacts_list.html"
+    context_object_name = "contacts"
 
-    class ContactDetailView(DetailView):
-        model = Contact
-        template_name = "core/pages/contact_detail.html"
-        context_object_name = "contact"
+class ContactDetailView(LoginRequiredMixin, DetailView):
+    model = Contact
+    template_name = "core/pages/contact_detail.html"
+    context_object_name = "contact"
 
+
+# -------- Довідники (Companies / Addresses / Tags) — теж закриваємо --------
+@login_required
 @require_http_methods(["GET", "POST"])
 def companies_view(request):
     if request.method == "POST":
@@ -90,6 +107,7 @@ def companies_view(request):
         "objects": form._meta.model.objects.all(),
     })
 
+@login_required
 @require_http_methods(["GET", "POST"])
 def addresses_view(request):
     if request.method == "POST":
@@ -102,9 +120,10 @@ def addresses_view(request):
     return render(request, "core/pages/addresses.html", {
         "title": "Addresses",
         "form": form,
-        "objects": form._meta.model.objects.select_related(None).all(),
+        "objects": form._meta.model.objects.all(),
     })
 
+@login_required
 @require_http_methods(["GET", "POST"])
 def tags_view(request):
     if request.method == "POST":
